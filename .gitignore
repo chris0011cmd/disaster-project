@@ -1,0 +1,35 @@
+# =========================
+# Frontend (Node / React)
+# =========================
+frontend/node_modules/
+frontend/node_modules/.cache/
+npm-debug.log*
+yarn-error.log*
+
+# =========================
+# Backend (Python)
+# =========================
+backend/env/
+backend/__pycache__/
+*.pyc
+
+# =========================
+# ML large files (use Git LFS)
+# =========================
+backend/*.h5
+backend/*.pkl
+backend/*.npy
+
+# =========================
+# Environment files
+# =========================
+.env
+.env.*
+
+# =========================
+# OS / Editor junk
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+
