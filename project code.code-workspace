@@ -6,5 +6,10 @@
 		{
 			"path": "frontend"
 		}
-	]
+	],
+	"extensions": {
+		"recommendations": [
+			"github.copilot-chat"
+		]
+	}
 }
