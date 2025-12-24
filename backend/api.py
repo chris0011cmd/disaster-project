@@ -3,8 +3,9 @@ from flask_cors import CORS
 import numpy as np
 import tensorflow as tf
 import os
-<<<<<<< HEAD
 import sys
+import base64
+import cv2
 from tensorflow.keras.models import load_model
 from joblib import load
 
@@ -13,19 +14,12 @@ from joblib import load
 # --------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, "..")))
-=======
-import base64
-from tensorflow.keras.models import load_model
-from joblib import load
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
->>>>>>> c72ef68b0a879628bfb4c7e973a5468229a9c70b
 
 # --------------------------------------------------
 # 🔧 DATABASE IMPORTS
 # --------------------------------------------------
 from database.connect_db import fetch_resource_data, update_resources, log_allocation
-<<<<<<< HEAD
+from custom_layer import SkipConnLayer, AttentionLayer, MyMeanIOU
 
 # --------------------------------------------------
 # 🔧 FLASK APP
@@ -34,12 +28,8 @@ app = Flask(__name__)
 CORS(app)
 
 # --------------------------------------------------
-# 🔧 CUSTOM LOSS (USED BY DQN MODEL)
+# 🔧 HELPER FUNCTIONS
 # --------------------------------------------------
-=======
-from custom_layer import SkipConnLayer, AttentionLayer, MyMeanIOU
-
-app = Flask(__name__)
 def analyze_with_confidence(image, mask, segmentation_output):
     """
     Analyze predictions with confidence scores to filter out uncertain classifications
@@ -66,6 +56,7 @@ def analyze_with_confidence(image, mask, segmentation_output):
     print(f"   🔻 Low confidence pixels removed: {low_conf_count} ({low_conf_count/(height*width)*100:.1f}%)")
     
     return filtered_mask, confidence_map
+
 def remove_sky_mountains_with_texture(image, mask):
     """
     Remove sky/mountains using color AND texture analysis
@@ -119,6 +110,7 @@ def remove_sky_mountains_with_texture(image, mask):
     print(f"🧹 Background removed: {removed} px ({removed/(height*width)*100:.1f}%)")
     
     return cleaned_mask
+
 def validate_building_regions(mask, image):
     """
     Check each detected region - remove if it's clearly NOT a building
@@ -180,136 +172,6 @@ def validate_building_regions(mask, image):
                     continue
     
     return validated_mask
-CORS(app)
-
-custom_objects = {
-    "SkipConnLayer": SkipConnLayer,
-    "AttentionLayer": AttentionLayer,
-    "MyMeanIOU": MyMeanIOU
-}
-
-from tensorflow.keras.losses import MeanSquaredError
->>>>>>> c72ef68b0a879628bfb4c7e973a5468229a9c70b
-from tensorflow.keras.saving import register_keras_serializable
-
-@register_keras_serializable()
-def mse(y_true, y_pred):
-    return tf.keras.losses.mean_squared_error(y_true, y_pred)
-
-<<<<<<< HEAD
-# --------------------------------------------------
-# 🔧 LOAD MODEL & SCALERS (SAFE)
-# --------------------------------------------------
-try:
-    print("🔍 Loading DQN model and scalers...")
-
-    model = load_model(
-        os.path.join(BASE_DIR, "dqn_model.h5"),
-        custom_objects={"mse": mse},
-        compile=False
-    )
-
-    scaler_X = load(os.path.join(BASE_DIR, "scaler_X.pkl"))
-    scaler_Y = load(os.path.join(BASE_DIR, "scaler_Y.pkl"))
-
-    print("✅ DQN model and scalers loaded successfully!")
-=======
-try:
-    print("🔍 Loading trained models and scalers...")
-    model = load_model("dqn_model.h5", custom_objects={"mse": mse})
-    scaler_X = load("scaler_X.pkl")
-    scaler_Y = load("scaler_Y.pkl")
-
-    with tf.keras.utils.custom_object_scope(custom_objects):
-        segmentation_model = load_model("model.h5", compile=False)
->>>>>>> c72ef68b0a879628bfb4c7e973a5468229a9c70b
-
-except Exception as e:
-    print(f"❌ Failed to load model or scalers: {e}")
-    exit(1)
-
-<<<<<<< HEAD
-# --------------------------------------------------
-# 🔸 DAMAGE ANALYSIS (DISABLED SAFELY)
-# --------------------------------------------------
-=======
-# ------------------------------
-# 🔹 TARGETED SKY/MOUNTAIN REMOVAL ONLY
-# ------------------------------
-def remove_sky_and_mountains(image, mask):
-    """
-    Remove ONLY sky and mountains - keep ALL building classes untouched
-    Focus on upper regions with nature colors
-    """
-    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    height, width = image.shape[:2]
-    
-    # Initialize removal mask
-    removal_mask = np.zeros((height, width), dtype=np.uint8)
-    
-    # 1. POSITION-BASED: Focus on upper 40% where mountains/sky typically are
-    upper_region = np.zeros((height, width), dtype=np.uint8)
-    upper_region[0:int(height * 0.40), :] = 255
-    
-    # 2. SKY DETECTION - Very bright areas
-    _, bright_sky = cv2.threshold(gray, 210, 255, cv2.THRESH_BINARY)
-    
-    # 3. GREEN VEGETATION/MOUNTAINS
-    # Dark green mountains
-    lower_green1 = np.array([35, 25, 25])
-    upper_green1 = np.array([90, 255, 180])
-    green_mask = cv2.inRange(hsv, lower_green1, upper_green1)
-    
-    # Bright green (vegetation)
-    lower_green2 = np.array([35, 40, 80])
-    upper_green2 = np.array([85, 255, 255])
-    bright_green = cv2.inRange(hsv, lower_green2, upper_green2)
-    
-    vegetation_mask = cv2.bitwise_or(green_mask, bright_green)
-    
-    # 4. BLUE AREAS (mountains/sky)
-    lower_blue = np.array([90, 20, 40])
-    upper_blue = np.array([130, 255, 255])
-    blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
-    
-    # 5. GRAY MOUNTAINS
-    lower_gray = np.array([0, 0, 60])
-    upper_gray = np.array([180, 25, 150])
-    gray_mask = cv2.inRange(hsv, lower_gray, upper_gray)
-    
-    # Combine nature features
-    nature_mask = cv2.bitwise_or(vegetation_mask, blue_mask)
-    nature_mask = cv2.bitwise_or(nature_mask, gray_mask)
-    nature_mask = cv2.bitwise_or(nature_mask, bright_sky)
-    
-    # Apply to upper region primarily
-    nature_in_upper = cv2.bitwise_and(nature_mask, upper_region)
-    
-    # Expand to connected regions
-    kernel = np.ones((9, 9), np.uint8)
-    nature_in_upper = cv2.morphologyEx(nature_in_upper, cv2.MORPH_CLOSE, kernel)
-    nature_in_upper = cv2.dilate(nature_in_upper, kernel, iterations=1)
-    
-    # CRITICAL: Only remove from non-building classes
-    # Classes 3,4,5,6 are buildings - NEVER touch them
-    building_mask = ((mask == 3) | (mask == 4) | (mask == 5) | (mask == 6)).astype(np.uint8) * 255
-    
-    # Remove nature, but PROTECT buildings
-    removal_mask = nature_in_upper.copy()
-    removal_mask[building_mask > 0] = 0  # Never remove building pixels
-    
-    # Apply removal
-    cleaned_mask = mask.copy()
-    cleaned_mask[removal_mask > 0] = 0
-    
-    # Stats
-    removed = np.sum(removal_mask > 0)
-    protected = np.sum(building_mask > 0)
-    print(f"🌲 Nature removed: {removed} pixels ({removed/(height*width)*100:.1f}%)")
-    print(f"🏢 Buildings protected: {protected} pixels ({protected/(height*width)*100:.1f}%)")
-    
-    return cleaned_mask
 
 def create_overlay(original, mask):
     """
@@ -325,7 +187,6 @@ def create_overlay(original, mask):
     overlay = original.copy()
     
     print(f"🎨 Creating overlay...")
-    unique, counts = np.unique(mask, return_counts=True)
     
     for class_id, color in color_map.items():
         binary_mask = (mask == class_id).astype(np.uint8) * 255
@@ -443,18 +304,69 @@ def generate_explanation(results):
     
     return f"Assessment complete: {damaged}/{total} structures damaged."
 
->>>>>>> c72ef68b0a879628bfb4c7e973a5468229a9c70b
+# --------------------------------------------------
+# 🔧 CUSTOM MSE FUNCTION
+# --------------------------------------------------
+from tensorflow.keras.utils import register_keras_serializable
+
+@register_keras_serializable()
+def mse(y_true, y_pred):
+    return tf.keras.losses.mean_squared_error(y_true, y_pred)
+
+# --------------------------------------------------
+# 🔧 LOAD MODEL & SCALERS (FIXED)
+# --------------------------------------------------
+try:
+    print("🔍 Loading DQN model and scalers...")
+
+    model = load_model(
+        os.path.join(BASE_DIR, "dqn_model.h5"),
+        custom_objects={"mse": mse},
+        compile=False
+    )
+
+    # FIXED: use lowercase filenames to match your actual files
+    scaler_X = load(os.path.join(BASE_DIR, "scaler_x.pkl"))
+    scaler_Y = load(os.path.join(BASE_DIR, "scaler_y.pkl"))
+
+    print("✅ DQN model and scalers loaded successfully!")
+
+    # Try to load segmentation model (with error handling)
+    try:
+        custom_objects_seg = {
+            "SkipConnLayer": SkipConnLayer,
+            "AttentionLayer": AttentionLayer,
+            "MyMeanIOU": MyMeanIOU
+        }
+        
+        with tf.keras.utils.custom_object_scope(custom_objects_seg):
+            segmentation_model = load_model(os.path.join(BASE_DIR, "model.h5"), compile=False)
+        
+        print("✅ Segmentation model loaded successfully!")
+    
+    except FileNotFoundError:
+        segmentation_model = None
+        print("⚠️  WARNING: Segmentation model (model.h5) not found!")
+        print("    Damage assessment will be disabled until you add model.h5 to the backend folder.")
+    except Exception as seg_error:
+        segmentation_model = None
+        print(f"⚠️  WARNING: Could not load segmentation model: {seg_error}")
+
+except Exception as e:
+    print(f"❌ CRITICAL ERROR: Failed to load DQN model or scalers: {e}")
+    import traceback
+    traceback.print_exc()
+    exit(1)
+
+# --------------------------------------------------
+# 🔧 DAMAGE ANALYSIS API
+# --------------------------------------------------
 @app.route("/analyze-damage", methods=["POST"])
 def analyze_damage():
-    return jsonify({
-        "message": "Segmentation model is disabled (model file not available)."
-    })
+    try:
+        if "image" not in request.files:
+            return jsonify({"error": "No image file provided."}), 400
 
-<<<<<<< HEAD
-# --------------------------------------------------
-# 🔸 RESOURCE ALLOCATION API
-# --------------------------------------------------
-=======
         file = request.files["image"]
         disaster_type = request.form.get("disaster_type", "Unknown")
         location = request.form.get("location", "Unknown")
@@ -466,6 +378,16 @@ def analyze_damage():
         print(f"   Location: {location}")
         print(f"   Time: {timestamp}")
         print("="*70 + "\n")
+
+        # Check if segmentation model is available
+        if segmentation_model is None:
+            return jsonify({
+                "error": "Segmentation model not loaded. Please add model.h5 to the backend folder.",
+                "building_no_damage": 0,
+                "building_minor_damage": 0,
+                "building_major_damage": 0,
+                "building_complete_destruction": 0
+            }), 500
 
         # Process image
         image_np = np.frombuffer(file.read(), np.uint8)
@@ -580,31 +502,19 @@ def analyze_damage():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
->>>>>>> c72ef68b0a879628bfb4c7e973a5468229a9c70b
+# --------------------------------------------------
+# 🔸 RESOURCE ALLOCATION API
+# --------------------------------------------------
 @app.route("/allocate-resources", methods=["POST"])
 def allocate_resources():
     try:
         data = request.json
-<<<<<<< HEAD
-        print(f"📥 Input received: {data}")
-
-        required_keys = [
-            "building_no_damage",
-            "building_minor_damage",
-            "building_major_damage",
-            "building_total_destruction"
-        ]
-
-        if not all(k in data for k in required_keys):
-            return jsonify({"error": "Missing required fields"}), 400
-=======
         print(f"📥 Resource Allocation Request: {data}")
 
         required_keys = ["building_no_damage", "building_minor_damage", 
                         "building_major_damage", "building_total_destruction"]
         if not all(key in data for key in required_keys):
             return jsonify({"error": "Invalid input format. Missing required fields."}), 400
->>>>>>> c72ef68b0a879628bfb4c7e973a5468229a9c70b
 
         no_damage = int(data["building_no_damage"])
         num_minor = int(data["building_minor_damage"])
@@ -620,14 +530,13 @@ def allocate_resources():
 
         resource_data = fetch_resource_data()
         if resource_data is None or resource_data.empty:
-            return jsonify({"error": "No resource data in DB"}), 500
+            return jsonify({"error": "No resource data in database"}), 500
 
         resource_names = resource_data["resource_name"].tolist()
 
         total_damaged = num_minor + num_major + num_total
         results = []
 
-<<<<<<< HEAD
         for i, qty in enumerate(predicted_allocations):
             if qty > 0:
                 update_resources(resource_names[i], int(qty))
@@ -639,70 +548,28 @@ def allocate_resources():
 
         updated_resources = fetch_resource_data().to_dict(orient="records")
 
-        print("✅ Resource allocation successful")
+        print("✅ Resource allocation successful!")
 
         return jsonify({
             "allocations": results,
-            "updated_resources": updated_resources
-        })
-
-    except Exception as e:
-        print(f"❌ Allocation error: {e}")
-=======
-        if total_damaged_buildings > 0:
-            for allocated_quantity in predicted_allocations:
-                minor_share = (num_minor / total_damaged_buildings) * allocated_quantity if num_minor > 0 else 0
-                major_share = (num_major / total_damaged_buildings) * allocated_quantity if num_major > 0 else 0
-                total_share = allocated_quantity - (int(minor_share) + int(major_share))
-
-                minor_allocations.append(int(minor_share))
-                major_allocations.append(int(major_share))
-                total_allocations.append(int(total_share))
-
-        allocation_results = {
-            "minor_damage": [{"resource_name": resource_names[i], "allocated_quantity": minor_allocations[i]} 
-                           for i in range(len(resource_names)) if minor_allocations[i] > 0],
-            "major_damage": [{"resource_name": resource_names[i], "allocated_quantity": major_allocations[i]} 
-                           for i in range(len(resource_names)) if major_allocations[i] > 0],
-            "total_destruction": [{"resource_name": resource_names[i], "allocated_quantity": total_allocations[i]} 
-                                for i in range(len(resource_names)) if total_allocations[i] > 0]
-        }
-
-        for i, resource_name in enumerate(resource_names):
-            allocated_quantity = minor_allocations[i] + major_allocations[i] + total_allocations[i]
-            if allocated_quantity > 0:
-                update_resources(resource_name, int(allocated_quantity))
-                log_allocation(1, i + 1, int(allocated_quantity))
-
-        updated_resources = fetch_resource_data().to_dict(orient="records")
-
-        print("✅ Resource Allocation Complete!")
-        return jsonify({
-            "allocation_results": allocation_results,
             "updated_resources": updated_resources,
             "building_no_damage": no_damage,
             "building_minor_damage": num_minor,
             "building_major_damage": num_major,
-            "building_complete_destruction": num_total,
-            "disaster_type": data.get("disaster_type", "Unknown"),
-            "location": data.get("location", "Unknown"),
-            "timestamp": data.get("timestamp", "")
+            "building_complete_destruction": num_total
         })
 
     except Exception as e:
-        print(f"❌ Resource Allocation Error: {e}")
->>>>>>> c72ef68b0a879628bfb4c7e973a5468229a9c70b
+        print(f"❌ Allocation error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 # --------------------------------------------------
 # 🚀 START SERVER
 # --------------------------------------------------
 if __name__ == "__main__":
-<<<<<<< HEAD
-    print("🚀 API Server Running on http://127.0.0.1:5000/")
-    app.run(host="0.0.0.0", port=5000, debug=True)
-=======
-    print("🚀 Disaster Response API Server")
+    print("\n🚀 Disaster Response API Server")
     print("="*50)
     print("   Listening on: http://127.0.0.1:5000/")
     print("   Endpoints:")
@@ -710,4 +577,3 @@ if __name__ == "__main__":
     print("     - POST /allocate-resources")
     print("="*50 + "\n")
     app.run(host="0.0.0.0", port=5000, debug=True)
->>>>>>> c72ef68b0a879628bfb4c7e973a5468229a9c70b
