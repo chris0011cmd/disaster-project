@@ -122,6 +122,13 @@ function DamageAssessment() {
               />
             </>
           )}
+          {result.explanation && (
+  <div className="explanation-box">
+    <h4>Why this assessment?</h4>
+    <p>{result.explanation}</p>
+  </div>
+)}
+
 
           <h3>Assessment Result</h3>
 
